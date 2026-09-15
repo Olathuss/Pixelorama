@@ -51,6 +51,7 @@ mouse_filter = 2
 [node name="PatternsPopup" parent="Dialogs" unique_id=1460330370 instance=ExtResource("5")]
 
 [node name="OpenSprite" parent="Dialogs" unique_id=1925344067 instance=ExtResource("12")]
+filters = PackedStringArray("*.pxo ; Pixelorama Project", "*.png ; PNG Image", "*.bmp ; BMP Image", "*.hdr ; Radiance HDR Image", "*.jpg,*.jpeg ; JPEG Image", "*.svg ; SVG Image", "*.tga ; TGA Image", "*.webp ; WebP Image", "*exr; EXR Image", "*ora; OpenRaster Project", "*ase, *aseprite; Aseprite Project", "*kra; Krita Project", "*piskel; Piskel Project", "*psd; Photoshop Project", "*.json; Pixelorama palette", "*.gpl; GIMP palette", "*pal; Palette", "*.pcx; PiCture eXchange")
 
 [node name="SaveSprite" parent="Dialogs" unique_id=464926544 instance=ExtResource("11")]
 
@@ -115,7 +116,6 @@ script = ExtResource("17_k1xhp")
 [connection signal="canceled" from="Dialogs/SaveSprite" to="." method="_on_save_sprite_canceled"]
 [connection signal="file_selected" from="Dialogs/SaveSprite" to="." method="_on_SaveSprite_file_selected"]
 [connection signal="visibility_changed" from="Dialogs/SaveSprite" to="." method="_can_draw_true"]
-[connection signal="confirmed" from="Dialogs/SaveSpriteHTML5" to="." method="save_project" binds= [""]]
 [connection signal="visibility_changed" from="Dialogs/SaveSpriteHTML5" to="." method="_can_draw_true"]
 [connection signal="visibility_changed" from="Dialogs/ExportDialog" to="." method="_can_draw_true"]
 [connection signal="visibility_changed" from="Dialogs/UnsavedCanvasDialog" to="." method="_can_draw_true"]

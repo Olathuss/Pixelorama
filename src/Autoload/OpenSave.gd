@@ -121,6 +121,8 @@ func handle_loading_file(file: String, force_import_dialog_on_images := false) -
 		PhotoshopParser.open_photoshop_file(file)
 	elif file_ext == "piskel":
 		open_piskel_file(file)
+	elif file_ext == "pcx":
+		open_pcx_file(file)
 	elif has_custom_open_callbacks(file_ext):
 		execute_custom_open_callback(file_ext, file)
 	else:  # Image files
@@ -195,7 +197,7 @@ func handle_loading_image(file: String, image: Image, force_import_dialog := fal
 		Global.projects.size() <= 1
 		and Global.current_project.is_empty()
 		and not force_import_dialog
-	):
+	):	
 		open_image_as_new_tab(file, image)
 		return
 	var preview_dialog := preview_dialog_tscn.instantiate() as ImportPreviewDialog
@@ -1323,6 +1325,103 @@ func open_piskel_file(path: String) -> void:
 	Global.projects.append(new_project)
 	Global.tabs.current_tab = Global.tabs.get_tab_count() - 1
 
+func open_pcx_file(path: String) -> void:
+	var image = decode_pcx_to_image(path)
+	if image == null:
+		Global.popup_error("Failed to load PCX file.")
+		return
+	
+	open_image_as_new_tab(path, image)
+	
+func decode_pcx_to_image(path: String) -> Image:
+	var palette_eof_offset = 769
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		Global.popup_error("Failed to open PCX file.")
+		return null
+	
+	var data: PackedByteArray = file.get_buffer(file.get_length())
+	file.close()
+	
+	var header = data.slice(0, 128)
+	
+	var pcx_validation = header.decode_u8(0)
+	if pcx_validation != 0x0A:
+		Global.popup_error("Invalid PCX file.")
+		return null
+		
+	var pcx_version = header.decode_u8(0x01)
+	var encoding = header.decode_u8(0x02)
+	if encoding != 1:
+		Global.popup_error("Unsupported PCX encoding (must be RLE)")
+		return null
+		
+	var bits_per_pixel = header.decode_u8(0x03)
+	if bits_per_pixel != 8:
+		Global.popup_error("Unsupported PCX format (must be 8-bit indexed)")
+		return null
+		
+	var num_planes = header.decode_u8(0x41)
+	if num_planes != 1:
+		Global.popup_error("Unsupported PCX format (must have 1 color plane)")
+		return null
+	
+	var xmin = header.decode_u16(0x04)
+	var ymin = header.decode_u16(0x06)
+	var xmax = header.decode_u16(0x08)
+	var ymax = header.decode_u16(0x0A)
+	
+	var width = xmax - xmin - 1
+	var height = ymax - ymin - 1
+	
+	var pixel_start = 128
+	var pixels = PackedByteArray()
+	pixels.resize(width * height)
+	
+	var src = pixel_start
+	var dst = 0
+	
+	for y in height:
+		var x = 0
+		while x < width:
+			var byte = data[src]
+			src += 1
+			
+			if byte >= 0xC0:
+				var count = byte & 0x3F
+				var value = data[src]
+				src += 1
+				for i in count:
+					if x < width:
+						pixels[dst] = value
+						dst += 1
+						x += 1
+			else:
+				pixels[dst] = byte
+				dst += 1
+				x += 1
+	
+	var palette_marker_offset = data.size() - palette_eof_offset
+	var palette_bytes = PackedByteArray()
+	if palette_marker_offset >= 0 and data[palette_marker_offset] == 0x0C:
+		palette_bytes = data.slice(data.size() - palette_eof_offset - 1, data.size() - 1)
+		var colors := PackedColorArray()
+		for i in range(0, palette_eof_offset - 1, 3):
+			var r = palette_bytes[i]
+			var g = palette_bytes[i+1]
+			var b = palette_bytes[i+2]
+			colors.append(Color.from_rgba8(r, g, b))
+		var palette_name = path.get_basename().get_file()
+		var palette = Palettes.fill_imported_palette_with_colors(palette_name, colors)
+		Palettes.palettes[palette.name] = palette
+		Palettes.select_palette(palette.name)
+	
+	var image = Image.create(width, height, false, Image.FORMAT_L8)
+	for y in height:
+		for x in width:
+			var idx = pixels[y * width + x]
+			image.set_pixel(x, y, Color8(idx, idx, idx))
+	return image
 
 func enforce_backed_sessions_limit() -> void:
 	# Enforce session limit
